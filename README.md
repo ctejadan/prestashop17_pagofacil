@@ -4,7 +4,7 @@
 
 * Download the latest version.
 * Rename the file to "pagofacil".
-* Unzip in the module's folder.
+* Unzip the module's folder.
 * Active the module in your PrestaShop's back-office.
 * Set up the module with your credentials.
 

@@ -87,6 +87,14 @@ class PagoFacil extends PaymentModule
         if (!parent::install() || !$this->registerHook('paymentOptions') || !$this->registerHook('paymentReturn')) {
             return false;
         }
+
+        /*
+         * Generamos el nuevo estado de orden
+         */
+        if (!$this->installOrderState()) {
+            return false;
+        }
+
         return true;
     }
 
@@ -102,6 +110,8 @@ class PagoFacil extends PaymentModule
             $token_service = strval(Tools::getValue('TOKEN_SERVICE'));
             $token_secret = strval(Tools::getValue('TOKEN_SECRET'));
             $is_devel = strval(Tools::getValue('ES_DEVEL'));
+            $show_all_payment_platforms = strval(Tools::getValue('SHOW_ALL_PAYMENT_PLATFORMS'));
+
 
             if (!$token_service || empty($token_service) || !Validate::isGenericName($token_service)) {
                 $output .= $this->displayError($this->l('Token Service no válido'));
@@ -115,11 +125,14 @@ class PagoFacil extends PaymentModule
             Configuration::updateValue('TOKEN_SERVICE', $token_service);
             Configuration::updateValue('TOKEN_SECRET', $token_secret);
             Configuration::updateValue('ES_DEVEL', $is_devel);
+            Configuration::updateValue('SHOW_ALL_PAYMENT_PLATFORMS', $show_all_payment_platforms);
 
             $output .= $this->displayConfirmation($this->l('Actualizado exitosamente'));
             $output .= $this->displayConfirmation($this->l("$token_service"));
             $output .= $this->displayConfirmation($this->l("$token_secret"));
             $output .= $this->displayConfirmation($this->l("$is_devel"));
+            $output .= $this->displayConfirmation($this->l("$show_all_payment_platforms"));
+
         }
         return $output . $this->displayForm();
     }
@@ -158,6 +171,19 @@ class PagoFacil extends PaymentModule
                     'type' => 'select',
                     'label' => $this->l('Es desarollo ?'),
                     'name' => 'ES_DEVEL',
+                    'size' => 2,
+                    'options' => array(
+                        'query' => $optionsforselect,
+                        'id' => 'id_seleccion',
+                        'name' => 'name'
+                    ),
+                    'default' => 1,
+                    'required' => true
+                ),
+                array(
+                    'type' => 'select',
+                    'label' => $this->l('Usar plataforma de Pago Fácil para mostrar opciones de pago ?'),
+                    'name' => 'SHOW_ALL_PAYMENT_PLATFORMS',
                     'size' => 2,
                     'options' => array(
                         'query' => $optionsforselect,
@@ -208,6 +234,8 @@ class PagoFacil extends PaymentModule
         $helper->fields_value['TOKEN_SERVICE'] = Configuration::get('TOKEN_SERVICE');
         $helper->fields_value['TOKEN_SECRET'] = Configuration::get('TOKEN_SECRET');
         $helper->fields_value['ES_DEVEL'] = Configuration::get('ES_DEVEL');
+        $helper->fields_value['SHOW_ALL_PAYMENT_PLATFORMS'] = Configuration::get('SHOW_ALL_PAYMENT_PLATFORMS');
+
 
         return $helper->generateForm($fields_form);
     }
@@ -222,9 +250,59 @@ class PagoFacil extends PaymentModule
             return;
         }
 
-        $payment_options = [
-            $this->getExternalPaymentOption($params),
-        ];
+        $currency = new Currency($params['cart']->id_currency);
+        $currency->iso_code;
+
+        if (Configuration::get('SHOW_ALL_PAYMENT_PLATFORMS') === 'SI') {
+            $payment_options = [
+                $this->showAllPaymentPlatforms(),
+            ];
+        } else {
+            $ch = curl_init();
+
+            curl_setopt($ch, CURLOPT_URL, "https://t.pagofacil.xyz/v1/services");
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array('x-currency: ' . $currency->iso_code, 'x-service: ' . $this->token_service));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+            $server_output = curl_exec($ch);
+
+            $result = json_decode($server_output, true);
+
+            curl_close($ch);
+
+            $paymentPlatformAvailables = array();
+
+            foreach ($result['externalServices'] as $key => $value) {
+
+                $newOption = new PaymentOption();
+
+                $newOption->setCallToActionText($this->l($value['name']))
+                    ->setAction($this->context->link->getModuleLink($this->name, 'validation', array(), true))
+                    ->setInputs([
+                        'name' => [
+                            'name' => 'name',
+                            'type' => 'hidden',
+                            'value' => $value['name'],
+                        ],
+                        'endpoint' => [
+                            'name' => 'endpoint',
+                            'type' => 'hidden',
+                            'value' => $value['endpoint']
+                        ],
+                        'logo_url' => [
+                            'name' => 'logo_url',
+                            'type' => 'hidden',
+                            'value' => $value['logo_url']
+                        ]
+                    ])
+                    ->setLogo($value['logo_url'])
+                    //->setAdditionalInformation('<img src="' . $value[logo_url] . '" width="20">')
+                    ->setAdditionalInformation('<section><p>' . $value[description] . '</p ></section >');
+                array_push($paymentPlatformAvailables, $newOption);
+            }
+
+            $payment_options = $paymentPlatformAvailables;
+        }
 
         return $payment_options;
     }
@@ -244,83 +322,43 @@ class PagoFacil extends PaymentModule
         return false;
     }
 
-    public function getExternalPaymentOption($params)
+    public function showAllPaymentPlatforms()
     {
 
-        $order = $params['order'];
-
-        if (!Validate::isLoadedObject($order)) {
-            //do what you need to do
-            $order_id = (int)$order->id;
-
-        }
-
         $externalOption = new PaymentOption();
-        $cart_amount = Context::getContext()->cart->getOrderTotal(true);
-        $customer_email = Context::getContext()->customer->email;
-        $token_store = md5(date('m/d/Y h:i:s a', time()) . $order_id . $this->token_service);
-
-        var_dump("viene token secret", $this->token_secret);
-
-        $signature = $this->generateSignature($cart_amount, $customer_email, $order_id, $this->token_service, $token_store, $this->token_secret);
-
-        var_dump("viene signature ", $signature);
 
         $externalOption->setCallToActionText($this->l('Pagar con Tarjeta de Crédito o Débito'))
             ->setAction($this->context->link->getModuleLink($this->name, 'validation', array(), true))
-            ->setInputs([
-                'pf_amount' => [
-                    'name' => 'pf_amount',
-                    'type' => 'hidden',
-                    'value' => $cart_amount
-                ],
-                'pf_email' => [
-                    'name' => 'pf_email',
-                    'type' => 'hidden',
-                    'value' => $customer_email
-                ],
-                'pf_order_id' => [
-                    'name' => 'pf_order_id',
-                    'type' => 'hidden',
-                    'value' => $order_id
-                ],
-                'pf_token_service' => [
-                    'name' => 'pf_token_service',
-                    'type' => 'hidden',
-                    'value' => $this->token_service
-                ],
-                'pf_token_store' => [
-                    'name' => 'pf_token_store',
-                    'type' => 'hidden',
-                    'value' => $token_store
-                ],
-                'pf_signature' => [
-                    'name' => 'pf_signature',
-                    'type' => 'hidden',
-                    'value' => $signature
-                ]
-
-            ])
             ->setAdditionalInformation($this->context->smarty->fetch('module:pagofacil/views/templates/front/payment_infos.tpl'));
         //->setLogo(Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/payment.jpg'));
 
         return $externalOption;
     }
 
-    public function generateSignature($pf_amount, $pf_email, $pf_order_id, $pf_token_service, $pf_token_store, $pf_token_secret)
+    public function installOrderState()
     {
-        $signatureArray = array();
-        $signatureString = "";
-        array_push($signatureArray, "pf_amount=" . $pf_amount, "pf_email=" . $pf_email, "pf_order_id=" . $pf_order_id, "pf_token_service=" . $pf_token_service, "pf_token_store=" . $pf_token_store);
-        ksort($signatureArray);
-
-        foreach ($signatureArray as $key => $value) {
-            $signatureString .= $value;
+        if (Configuration::get('PS_OS_PAGOFACIL_PENDING_PAYMENT') < 1) {
+            $order_state = new OrderState();
+            $order_state->send_email = false;
+            $order_state->module_name = $this->name;
+            $order_state->invoice = false;
+            $order_state->color = '#98c3ff';
+            $order_state->logable = true;
+            $order_state->shipped = false;
+            $order_state->unremovable = false;
+            $order_state->delivery = false;
+            $order_state->hidden = false;
+            $order_state->paid = false;
+            $order_state->deleted = false;
+            $order_state->name = array((int)Configuration::get('PS_LANG_DEFAULT') => pSQL($this->l('Pago Fácil - Pendiente de Pago')));
+            if ($order_state->add()) {
+                // We save the order State ID in Configuration database
+                Configuration::updateValue('PS_OS_PAGOFACIL_PENDING_PAYMENT', $order_state->id);
+            } else {
+                return false;
+            }
         }
-
-        $finalSignature = hash_hmac('sha256', $signatureString, $pf_token_secret);
-
-        return ($finalSignature);
+        return true;
     }
 
 }

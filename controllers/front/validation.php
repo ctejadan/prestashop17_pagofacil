@@ -27,6 +27,8 @@
 /**
  * @since 1.5.0
  */
+
+
 class PagoFacilValidationModuleFrontController extends ModuleFrontController
 {
     /**
@@ -48,61 +50,101 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
             }
         }
 
+        //if no customer, return to step 1 (just in case)
+        $customer = new Customer($cart->id_customer);
+        if (!Validate::isLoadedObject($customer)) {
+            Tools::redirect('index.php?controller=order&step=1');
+        }
+
         if (!$authorized) {
             die($this->module->l('This payment method is not available.', 'validation'));
         }
+        //get data
+        $extra_vars = array();
+        $currency = new Currency($cart->id_currency);
+        $cart_amount = Context::getContext()->cart->getOrderTotal(true);
+        $customer_email = Context::getContext()->customer->email;
+        $token_service = Configuration::get('TOKEN_SERVICE');
+        $token_secret = Configuration::get('TOKEN_SECRET');
+        $token_store = md5(date('m/d/Y h:i:s a', time()) . $cart->id . $token_service);
 
-        $this->context->smarty->assign([
-            'params' => $_REQUEST,
-        ]);
+        //setting order as pending payment
+        $this->module->validateOrder($cart->id, Configuration::get('PS_OS_PAGOFACIL_PENDING_PAYMENT'), $cart_amount, $this->module->displayName, NULL, $extra_vars, (int)$currency->id, false, $customer->secure_key);
 
+        //set payload
+        $signaturePayload = array(
+            'pf_amount' => $cart_amount,
+            'pf_email' => $customer_email,
+            'pf_order_id' => Order::getOrderByCartId((int)($cart->id)), //exist after validateOrder
+            'pf_token_service' => $token_service,
+            'pf_token_store' => $token_store
+        );
+        //get signature
+        $signature = $this->generateSignature($signaturePayload, $token_secret);
 
-        /*$ch = curl_init();
+        //add signature to the payload
+        $signaturePayload['pf_signature'] = $signature;
 
+        //post parameters
+        $postVars = '';
+
+        foreach ($_REQUEST as $key => $value) {
+            $postVars .= $key . "=" . $value . "&";
+        }
+
+        //add transaction
+        $ch = curl_init();
 
         curl_setopt($ch, CURLOPT_URL, "https://t.pagofacil.xyz/v1");
         curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/x-www-form-urlencoded'));
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $postVars);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
         $server_output = curl_exec($ch);
 
-        $originalData = ($server_output);
-        $data = json_decode($server_output, TRUE);
+        $result = json_decode($server_output, true);
+
         curl_close($ch);
-*/
 
+        print_r("viene result");
+        print_r($result);
 
-        $url = 'https://t.pagofacil.xyz/v1';
-        $params = $_REQUEST;
-
-        // use key 'http' even if you send the request to https://...
-        $options = array(
-            'http' => array(
-                'header' => "Content-type: application/x-www-form-urlencoded",
-                'method' => 'POST',
-                'content' => http_build_query($params)
-            )
-        );
-        $context = stream_context_create($options);
-        $server_output = file_get_contents($url, false, $context);
-
-        $result = json_decode($server_output, TRUE);
+        print_r("viene request");
+        print_r($_REQUEST);
 
         if ($result['errorMessage'] || $result['status'] == 0) {
             var_dump("ITS BROKEN!");
             //broken, show broken advice
         } else {
-            //not broken, redirect
             var_dump("ITS FINE!");
+
+            if (Configuration::get('SHOW_ALL_PAYMENT_PLATFORMS') === 'SI') {
+                //show all platforms
+                Tools::redirect($result['redirect']);
+
+            } else {
+                $ch = curl_init();
+
+                curl_setopt($ch, CURLOPT_URL, $_REQUEST['endpoint']);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/x-www-form-urlencoded'));
+                curl_setopt($ch, CURLOPT_POSTFIELDS, '{"transaction": ' . $result[transactionId] . '}');
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+                $server_output = curl_exec($ch);
+
+                $result = json_decode($server_output, true);
+
+                curl_close($ch);
+            }
+            //set order as pending payment
         }
 
-        var_dump($params, $result);
 
-        $this->context->smarty->assign([
-            'result' => $server_output,
-        ]);
+        //$this->context->smarty->assign(['result' => $server_output,]);
 
         //$this->setTemplate('payment_return.tpl');
+
+        //THIS TO SHOW TEMPLATE
         $this->setTemplate('module:pagofacil/views/templates/front/payment_return.tpl');
 
 
@@ -120,5 +162,25 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
 
         // $this->module->validateOrder($cart->id, Configuration::get('PS_OS_BANKWIRE'), $total, $this->module->displayName, NULL, $mailVars, (int)$currency->id, false, $customer->secure_key);
         // Tools::redirect('index.php?controller=order-confirmation&id_cart='.$cart->id.'&id_module='.$this->module->id.'&id_order='.$this->module->currentOrder.'&key='.$customer->secure_key);
+    }
+
+    function generateSignature($payload, $tokenSecret)
+    {
+        $signatureString = "";
+        ksort($payload);
+        foreach ($payload as $key => $value) {
+            $signatureString .= $key . $value;
+        }
+        $signature = hash_hmac('sha256', $signatureString, $tokenSecret);
+
+        print_r("viene signature STRING");
+        print_r($signatureString);
+        print_r("viene signature");
+        print_r($signature);
+        print_r("viene token secret");
+        print_r($tokenSecret);
+        print_r("viene payload");
+        print_r($payload);
+        return $signature;
     }
 }

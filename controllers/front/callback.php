@@ -29,6 +29,7 @@ class PagoFacilCallbackModuleFrontController extends ModuleFrontController {
     var $token_service;
 
     public function initContent() {
+        //call validateorder here
         $this->setTemplate('module:pagofacil/views/templates/front/payment_return.tpl');
     }
 }

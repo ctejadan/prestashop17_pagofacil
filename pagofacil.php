@@ -276,6 +276,10 @@ class PagoFacil extends PaymentModule
 
                 $newOption = new PaymentOption();
 
+                $logoExtension = pathinfo(parse_url($value['logo_url'])['path'], PATHINFO_EXTENSION);
+
+                $newLogoUrl = substr($value['logo_url'], 0, strrpos($value['logo_url'], '.')) . '80.' . $logoExtension;
+
                 $newOption->setCallToActionText($this->l($value['name']))
                     ->setAction($this->context->link->getModuleLink($this->name, 'validation', array(), true))
                     ->setInputs([
@@ -292,11 +296,10 @@ class PagoFacil extends PaymentModule
                         'logo_url' => [
                             'name' => 'logo_url',
                             'type' => 'hidden',
-                            'value' => $value['logo_url']
+                            'value' => $newLogoUrl
                         ]
                     ])
-                    ->setLogo($value['logo_url'])
-                    //->setAdditionalInformation('<img src="' . $value[logo_url] . '" width="20">')
+                    ->setLogo($newLogoUrl)
                     ->setAdditionalInformation('<section><p>' . $value[description] . '</p ></section >');
                 array_push($paymentPlatformAvailables, $newOption);
             }

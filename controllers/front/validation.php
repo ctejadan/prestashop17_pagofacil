@@ -27,6 +27,9 @@
 /**
  * @since 1.5.0
  */
+
+include "/pagoFacilHelper/PagoFacilTransaction.php";
+
 class PagoFacilValidationModuleFrontController extends ModuleFrontController
 {
     /**
@@ -83,10 +86,23 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
         );
 
         //get signature
+
+        //generate signature
         $signature = $this->generateSignature($signaturePayload, $token_secret);
 
         //add signature to the payload
         $signaturePayload['pf_signature'] = $signature;
+
+        // Complete URL on order confirmation page
+        $shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
+        $url = Tools::getShopProtocol() .
+            $shop->domain . $shop->getBaseURI();
+        $return_url = $url .
+            'index.php?controller=order-confirmation&id_cart=' .
+            $cart->id . '&id_module=' . $this->module->id . '&id_order=' .
+            $order_id . '&key=' . $customer->secure_key;
+
+        $signaturePayload['x_url_complete'] = $return_url;
 
         //post parameters
         $postVars = '';
@@ -95,15 +111,14 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
             $postVars .= $key . "=" . $value . "&";
         }
 
-        //add transaction
-        $this->createTransaction($postVars, $_REQUEST);
+        //create transaction in pago facil
+        $this->createTransaction($postVars, $_REQUEST, Configuration::get('SHOW_ALL_PAYMENT_PLATFORMS'), $return_url);
 
         //use this to show template
         //$this->setTemplate('module:pagofacil/views/templates/front/payment_return.tpl');
-
     }
 
-    function generateSignature($payload, $tokenSecret)
+    public function generateSignature($payload, $tokenSecret)
     {
         $signatureString = "";
         ksort($payload);
@@ -115,12 +130,12 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
         return $signature;
     }
 
-    function createTransaction($postVars, $request)
+    public function createTransaction($postVars, $request, $showAllPlatformsInPagoFacil, $return_url)
     {
         $ch = curl_init();
 
         curl_setopt($ch, CURLOPT_URL, "https://t.pagofacil.xyz/v1");
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/x-www-form-urlencoded'));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/x-www-form-urlencoded', 'x_url_complete: ' . $return_url));
         curl_setopt($ch, CURLOPT_POSTFIELDS, $postVars);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
@@ -133,7 +148,7 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
         if ($result['errorMessage'] || $result['status'] == 0) {
             $this->setTemplate('module:pagofacil/views/templates/front/create_transaction_failed.tpl');
         } else {
-            if (Configuration::get('SHOW_ALL_PAYMENT_PLATFORMS') === 'SI') {
+            if ($showAllPlatformsInPagoFacil === 'SI') {
                 //show all platforms
                 return Tools::redirect($result['redirect']);
 
@@ -161,4 +176,5 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
             }
         }
     }
+
 }

@@ -58,20 +58,6 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
             die($this->module->l('This payment method is not available.', 'validation'));
         }
 
-
-        /*print_r("viene la llamada a la clase :s");
-
-        print_r(new PagoFacilHelper());
-
-        $newPagoFacilHelper  = new PagoFacilHelper();
-
-        print_r("ya se creo la instancia");
-
-        $newPagoFacilHelper->printThisShit("plsWork");
-
-        print_r("debio haber impreso");*/
-
-
         //get data
         $extra_vars = array();
         $currency = new Currency($cart->id_currency);
@@ -84,7 +70,9 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
         //setting order as pending payment
         $this->module->validateOrder($cart->id, Configuration::get('PS_OS_PAGOFACIL_PENDING_PAYMENT'), $cart_amount, $this->module->displayName, NULL, $extra_vars, (int)$currency->id, false, $customer->secure_key);
 
+        //getting order_id
         $order_id = Order::getOrderByCartId((int)($cart->id));
+
         //set payload
         $signaturePayload = array(
             'pf_amount' => $cart_amount,
@@ -93,6 +81,7 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
             'pf_token_service' => $token_service,
             'pf_token_store' => $token_store
         );
+
         //get signature
         $signature = $this->generateSignature($signaturePayload, $token_secret);
 
@@ -107,28 +96,11 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
         }
 
         //add transaction
-
         $this->createTransaction($postVars, $_REQUEST);
 
-
-        //THIS TO SHOW TEMPLATE
+        //use this to show template
         //$this->setTemplate('module:pagofacil/views/templates/front/payment_return.tpl');
 
-
-        // $customer = new Customer($cart->id_customer);
-        // if (!Validate::isLoadedObject($customer))
-        //     Tools::redirect('index.php?controller=order&step=1');
-
-        // $currency = $this->context->currency;
-        // $total = (float)$cart->getOrderTotal(true, Cart::BOTH);
-        // $mailVars = array(
-        //     '{bankwire_owner}' => Configuration::get('BANK_WIRE_OWNER'),
-        //     '{bankwire_details}' => nl2br(Configuration::get('BANK_WIRE_DETAILS')),
-        //     '{bankwire_address}' => nl2br(Configuration::get('BANK_WIRE_ADDRESS'))
-        // );
-
-        // $this->module->validateOrder($cart->id, Configuration::get('PS_OS_BANKWIRE'), $total, $this->module->displayName, NULL, $mailVars, (int)$currency->id, false, $customer->secure_key);
-        // Tools::redirect('index.php?controller=order-confirmation&id_cart='.$cart->id.'&id_module='.$this->module->id.'&id_order='.$this->module->currentOrder.'&key='.$customer->secure_key);
     }
 
     function generateSignature($payload, $tokenSecret)

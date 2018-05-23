@@ -27,8 +27,6 @@
 /**
  * @since 1.5.0
  */
-
-
 class PagoFacilValidationModuleFrontController extends ModuleFrontController
 {
     /**
@@ -59,6 +57,21 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
         if (!$authorized) {
             die($this->module->l('This payment method is not available.', 'validation'));
         }
+
+
+        /*print_r("viene la llamada a la clase :s");
+
+        print_r(new PagoFacilHelper());
+
+        $newPagoFacilHelper  = new PagoFacilHelper();
+
+        print_r("ya se creo la instancia");
+
+        $newPagoFacilHelper->printThisShit("plsWork");
+
+        print_r("debio haber impreso");*/
+
+
         //get data
         $extra_vars = array();
         $currency = new Currency($cart->id_currency);
@@ -71,11 +84,12 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
         //setting order as pending payment
         $this->module->validateOrder($cart->id, Configuration::get('PS_OS_PAGOFACIL_PENDING_PAYMENT'), $cart_amount, $this->module->displayName, NULL, $extra_vars, (int)$currency->id, false, $customer->secure_key);
 
+        $order_id = Order::getOrderByCartId((int)($cart->id));
         //set payload
         $signaturePayload = array(
             'pf_amount' => $cart_amount,
             'pf_email' => $customer_email,
-            'pf_order_id' => Order::getOrderByCartId((int)($cart->id)), //exist after validateOrder
+            'pf_order_id' => $order_id, //exist after validateOrder
             'pf_token_service' => $token_service,
             'pf_token_store' => $token_store
         );
@@ -88,64 +102,17 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
         //post parameters
         $postVars = '';
 
-        foreach ($_REQUEST as $key => $value) {
+        foreach ($signaturePayload as $key => $value) {
             $postVars .= $key . "=" . $value . "&";
         }
 
         //add transaction
-        $ch = curl_init();
 
-        curl_setopt($ch, CURLOPT_URL, "https://t.pagofacil.xyz/v1");
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/x-www-form-urlencoded'));
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $postVars);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $this->createTransaction($postVars, $_REQUEST);
 
-        $server_output = curl_exec($ch);
-
-        $result = json_decode($server_output, true);
-
-        curl_close($ch);
-
-        print_r("viene result");
-        print_r($result);
-
-        print_r("viene request");
-        print_r($_REQUEST);
-
-        if ($result['errorMessage'] || $result['status'] == 0) {
-            var_dump("ITS BROKEN!");
-            //broken, show broken advice
-        } else {
-            var_dump("ITS FINE!");
-
-            if (Configuration::get('SHOW_ALL_PAYMENT_PLATFORMS') === 'SI') {
-                //show all platforms
-                Tools::redirect($result['redirect']);
-
-            } else {
-                $ch = curl_init();
-
-                curl_setopt($ch, CURLOPT_URL, $_REQUEST['endpoint']);
-                curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/x-www-form-urlencoded'));
-                curl_setopt($ch, CURLOPT_POSTFIELDS, '{"transaction": ' . $result[transactionId] . '}');
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-                $server_output = curl_exec($ch);
-
-                $result = json_decode($server_output, true);
-
-                curl_close($ch);
-            }
-            //set order as pending payment
-        }
-
-
-        //$this->context->smarty->assign(['result' => $server_output,]);
-
-        //$this->setTemplate('payment_return.tpl');
 
         //THIS TO SHOW TEMPLATE
-        $this->setTemplate('module:pagofacil/views/templates/front/payment_return.tpl');
+        //$this->setTemplate('module:pagofacil/views/templates/front/payment_return.tpl');
 
 
         // $customer = new Customer($cart->id_customer);
@@ -173,14 +140,53 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
         }
         $signature = hash_hmac('sha256', $signatureString, $tokenSecret);
 
-        print_r("viene signature STRING");
-        print_r($signatureString);
-        print_r("viene signature");
-        print_r($signature);
-        print_r("viene token secret");
-        print_r($tokenSecret);
-        print_r("viene payload");
-        print_r($payload);
         return $signature;
+    }
+
+    function createTransaction($postVars, $request)
+    {
+        $ch = curl_init();
+
+        curl_setopt($ch, CURLOPT_URL, "https://t.pagofacil.xyz/v1");
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/x-www-form-urlencoded'));
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $postVars);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+        $server_output = curl_exec($ch);
+
+        $result = json_decode($server_output, true);
+
+        curl_close($ch);
+
+        if ($result['errorMessage'] || $result['status'] == 0) {
+            $this->setTemplate('module:pagofacil/views/templates/front/create_transaction_failed.tpl');
+        } else {
+            if (Configuration::get('SHOW_ALL_PAYMENT_PLATFORMS') === 'SI') {
+                //show all platforms
+                return Tools::redirect($result['redirect']);
+
+            } else {
+
+                $ch = curl_init();
+
+                curl_setopt($ch, CURLOPT_URL, $request['endpoint']);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/x-www-form-urlencoded'));
+                curl_setopt($ch, CURLOPT_POSTFIELDS, "{\"transaction\":\"" . $result['transactionId'] . "\"}");
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+                $server_output_response = curl_exec($ch);
+
+                $response = json_decode($server_output_response, true);
+
+                curl_close($ch);
+
+                if (empty($response)) {
+                    echo $server_output_response;
+                } else {
+                    return Tools::redirect($response['redirect']);
+                }
+
+            }
+        }
     }
 }

@@ -10,9 +10,9 @@
 
 ### Installation 2
 * Download the latest version.
-* Unzip in the module.
+* Unzip the module.
 * Rename the folder to "pagofacil".
-* Zip the folder with "pagofacil".
+* Compress the folder (zip) with "pagofacil" as name.
 * Upload the module through your PrestaShop's back-office.
 * Set up the module with your credentials.
 

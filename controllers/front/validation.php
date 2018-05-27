@@ -27,9 +27,6 @@
 /**
  * @since 1.5.0
  */
-
-include "/pagoFacilHelper/PagoFacilTransaction.php";
-
 class PagoFacilValidationModuleFrontController extends ModuleFrontController
 {
     /**
@@ -76,23 +73,6 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
         //getting order_id
         $order_id = Order::getOrderByCartId((int)($cart->id));
 
-        //set payload
-        $signaturePayload = array(
-            'pf_amount' => $cart_amount,
-            'pf_email' => $customer_email,
-            'pf_order_id' => $order_id, //exist after validateOrder
-            'pf_token_service' => $token_service,
-            'pf_token_store' => $token_store
-        );
-
-        //get signature
-
-        //generate signature
-        $signature = $this->generateSignature($signaturePayload, $token_secret);
-
-        //add signature to the payload
-        $signaturePayload['pf_signature'] = $signature;
-
         // Complete URL on order confirmation page
         $shop = new Shop(Configuration::get('PS_SHOP_DEFAULT'));
         $url = Tools::getShopProtocol() .
@@ -102,17 +82,48 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
             $cart->id . '&id_module=' . $this->module->id . '&id_order=' .
             $order_id . '&key=' . $customer->secure_key;
 
-        $signaturePayload['x_url_complete'] = $return_url;
+        //set payload
+        $signaturePayload = array(
+            'pf_amount' => $cart_amount,
+            'pf_email' => $customer_email,
+            'pf_order_id' => $order_id, //exist after validateOrder
+            'pf_token_service' => $token_service,
+            'pf_token_store' => $token_store,
+            'pf_url_complete' => $return_url
+        );
+
+        //generate signature
+        $signature = $this->generateSignature($signaturePayload, $token_secret);
+
+        //add signature to the payload
+        $signaturePayload['pf_signature'] = $signature;
 
         //post parameters
         $postVars = '';
+        $ix = 0;
+        $len = count($signaturePayload);
 
         foreach ($signaturePayload as $key => $value) {
-            $postVars .= $key . "=" . $value . "&";
+            if ($ix !== $len - 1) {
+                if ($key == "pf_url_complete") {
+                    $postVars .= $key . "=" . urlencode($value) . "&";
+
+                } else {
+                    $postVars .= $key . "=" . $value . "&";
+                }
+
+            } else {
+                if ($key == "pf_url_complete") {
+                    $postVars .= $key . "=" . urlencode($value);
+                } else {
+                    $postVars .= $key . "=" . $value;
+                }
+            }
+            $ix++;
         }
 
         //create transaction in pago facil
-        $this->createTransaction($postVars, $_REQUEST, Configuration::get('SHOW_ALL_PAYMENT_PLATFORMS'), $return_url);
+        $this->createTransaction($postVars, $_REQUEST, Configuration::get('SHOW_ALL_PAYMENT_PLATFORMS'));
 
         //use this to show template
         //$this->setTemplate('module:pagofacil/views/templates/front/payment_return.tpl');
@@ -126,16 +137,15 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
             $signatureString .= $key . $value;
         }
         $signature = hash_hmac('sha256', $signatureString, $tokenSecret);
-
         return $signature;
     }
 
-    public function createTransaction($postVars, $request, $showAllPlatformsInPagoFacil, $return_url)
+    public function createTransaction($postVars, $request, $showAllPlatformsInPagoFacil)
     {
         $ch = curl_init();
 
         curl_setopt($ch, CURLOPT_URL, "https://t.pagofacil.xyz/v1");
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/x-www-form-urlencoded', 'x_url_complete: ' . $return_url));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/x-www-form-urlencoded'));
         curl_setopt($ch, CURLOPT_POSTFIELDS, $postVars);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 

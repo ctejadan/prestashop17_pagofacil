@@ -89,7 +89,8 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
             'pf_order_id' => $order_id, //exist after validateOrder
             'pf_token_service' => $token_service,
             'pf_token_store' => $token_store,
-            'pf_url_complete' => $return_url
+            'pf_url_complete' => $return_url,
+            'pf_url_callback' => $url.'module/pagofacil/callback'
         );
 
         //generate signature
@@ -105,7 +106,7 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
 
         foreach ($signaturePayload as $key => $value) {
             if ($ix !== $len - 1) {
-                if ($key == "pf_url_complete") {
+                if ($key == "pf_url_complete" || $key == "pf_url_callback") {
                     $postVars .= $key . "=" . urlencode($value) . "&";
 
                 } else {
@@ -113,7 +114,7 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
                 }
 
             } else {
-                if ($key == "pf_url_complete") {
+                if ($key == "pf_url_complete" || $key == "pf_url_callback") {
                     $postVars .= $key . "=" . urlencode($value);
                 } else {
                     $postVars .= $key . "=" . $value;

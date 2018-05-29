@@ -39,52 +39,15 @@ class PagoFacilCallbackModuleFrontController extends ModuleFrontController
 
     protected function processCallback()
     {
+        $POSTsignaturePayload = json_decode(file_get_contents('php://input'), true);
 
-        $POSTsignaturePayload = array();
+        $POSTsignature = $POSTsignaturePayload['pf_signature'];
 
-        error_log(print_r("VIENE SERVER ENTERO X.X", true));
-
-        error_log(print_r($_SERVER, true));
-
-
-        $POSTsignaturePayload['pf_order_id'] = Tools::getValue('pf_order_id');
-        $POSTsignaturePayload['pf_token_store'] = Tools::getValue('pf_token_store');
-        $POSTsignaturePayload['pf_amount'] = Tools::getValue('pf_amount');
-        $POSTsignaturePayload['pf_token_service'] = Tools::getValue('pf_token_service');
-        $POSTsignaturePayload['pf_status'] = Tools::getValue('pf_status');
-        $POSTsignaturePayload['pf_status_code'] = Tools::getValue('pf_status_code');
-        $POSTsignaturePayload['pf_authorization_code'] = Tools::getValue('pf_authorization_code');
-        $POSTsignaturePayload['pf_payment_type_code'] = Tools::getValue('pf_payment_type_code');
-        $POSTsignaturePayload['pf_card_number'] = Tools::getValue('pf_card_number');
-        $POSTsignaturePayload['pf_card_expiration_date'] = Tools::getValue('pf_card_expiration_date');
-        $POSTsignaturePayload['pf_installments'] = Tools::getValue('pf_installments');
-        $POSTsignaturePayload['pf_accounting_date'] = Tools::getValue('pf_accounting_date');
-        $POSTsignaturePayload['pf_transaction_date'] = Tools::getValue('pf_transaction_date');
-        $POSTsignaturePayload['pf_order_id_mall'] = Tools::getValue('pf_order_id_mall');
-        $POSTsignaturePayload['pf_vci'] = Tools::getValue('pf_vci');
-
-        $POSTsignature = Tools::getValue('pf_signature');
-
-
-        error_log(print_r("VIENE PAYLOAD", true));
-        error_log(print_r($POSTsignaturePayload, true));
-
-        error_log(print_r("VIENE TU SIGNATURE", true));
-        error_log(print_r($POSTsignature, true));
+        unset($POSTsignaturePayload['pf_signature']);
 
         $generatedSignature = $this->generateSignature($POSTsignaturePayload, $this->token_secret);
 
-        error_log(print_r("VIENE mi SIGNATURE", true));
-        error_log(print_r($generatedSignature, true));
-
         if ($generatedSignature !== $POSTsignature) {
-
-            error_log(print_r("BAD SIGNATURE!!", true));
-            error_log(print_r("MY SIGNATURE!!", true));
-            error_log(print_r($generatedSignature, true));
-            error_log(print_r("YOUR SIGNATURE!!", true));
-            error_log(print_r($POSTsignature, true));
-
 
             $this->my_http_response_code(400);
         }

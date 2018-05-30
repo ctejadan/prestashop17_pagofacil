@@ -2,6 +2,6 @@
 
 {block name="content"}
     <section>
-        <p>{l s='Algo salió mal, comunícate con nuestro equipo de Pago Facil.'}</p>
+        <p>{l s='Something went wrong, contact us.' mod='pagofacil'}</p>
     </section>
 {/block}

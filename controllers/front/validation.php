@@ -25,6 +25,10 @@
 */
 
 /**
+ * author: Cristian Tejada - https://github.com/ctejadan
+ */
+
+/**
  * @since 1.5.0
  */
 class PagoFacilValidationModuleFrontController extends ModuleFrontController
@@ -159,7 +163,7 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
         if ($result['errorMessage'] || $result['status'] == 0) {
             $this->setTemplate('module:pagofacil/views/templates/front/create_transaction_failed.tpl');
         } else {
-            if ($showAllPlatformsInPagoFacil === 'SI') {
+            if ($showAllPlatformsInPagoFacil === 'YES') {
                 //show all platforms
                 return Tools::redirect($result['redirect']);
 

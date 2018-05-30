@@ -24,5 +24,5 @@
 *}
 
 <section>
-  <p>{l s='Se redireccionará a la plataforma de pago' mod='mypaymentmodule'}</p>
+  <p>{l s='You will be redirected to the payment platform' mod='pagofacil'}</p>
 </section>

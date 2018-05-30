@@ -16,7 +16,9 @@
  * limitations under the License.
  */
 
-
+/**
+ * author: Cristian Tejada - https://github.com/ctejadan
+ */
 class PagoFacilCallbackModuleFrontController extends ModuleFrontController
 {
     var $token_secret;
@@ -39,16 +41,13 @@ class PagoFacilCallbackModuleFrontController extends ModuleFrontController
 
     protected function processCallback()
     {
-        $POSTsignaturePayload = json_decode(file_get_contents('php://input'), true);
-
+        $POSTsignaturePayload = json_decode(Tools::file_get_contents(), true);
         $POSTsignature = $POSTsignaturePayload['pf_signature'];
-
         unset($POSTsignaturePayload['pf_signature']);
-
         $generatedSignature = $this->generateSignature($POSTsignaturePayload, $this->token_secret);
 
         if ($generatedSignature !== $POSTsignature) {
-
+            print_r("NOT THE SAME SIGNATURE!!");
             $this->my_http_response_code(400);
         }
 
@@ -72,17 +71,13 @@ class PagoFacilCallbackModuleFrontController extends ModuleFrontController
         $PS_OS_PAYMENT = Configuration::get('PS_OS_PAYMENT');//Accepted
 
         if ($PS_OS_PAYMENT == $order->getCurrentState()) {
-            print_r("LA ORDEN YA ESTÁ PAGADA!");
-
             $this->my_http_response_code(400);
         }
 
         if ($POSTsignaturePayload['pf_status_code'] == 1) {//completed
             //check the amounts
             if (round($order->total_paid) != $POSTsignaturePayload['pf_amount']) {
-                //not the same amount
                 print_r("NOT THE SAME AMOUNT!!");
-
                 $this->my_http_response_code(400);
             } else {
                 $order->setCurrentState($PS_OS_PAYMENT);//paid
@@ -239,11 +234,8 @@ class PagoFacilCallbackModuleFrontController extends ModuleFrontController
         ksort($payload);
         foreach ($payload as $key => $value) {
             $valueWithoutNull = str_replace("null", "", $value);
-
             $signatureString .= $key . $valueWithoutNull;
         }
-        error_log(print_r("VIENE SIGNATURE STRING", true));
-        error_log(print_r($signatureString, true));
 
         $signature = hash_hmac('sha256', $signatureString, $tokenSecret);
         return $signature;

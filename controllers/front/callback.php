@@ -22,7 +22,6 @@
 
 include_once(_PS_MODULE_DIR_ . 'pagofacil' . DIRECTORY_SEPARATOR . 'classes' . DIRECTORY_SEPARATOR . 'PagoFacilHelper.php');
 
-
 class PagoFacilCallbackModuleFrontController extends ModuleFrontController
 {
     var $token_secret;
@@ -80,6 +79,7 @@ class PagoFacilCallbackModuleFrontController extends ModuleFrontController
         $PS_OS_PAYMENT = Configuration::get('PS_OS_PAYMENT');//Accepted
 
         if ($PS_OS_PAYMENT == $order->getCurrentState()) {
+            print_r("THE ORDER IS ALREADY PAID!");
             $PFHelper->httpResponseCode(400);
         }
 

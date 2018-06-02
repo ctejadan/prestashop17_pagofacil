@@ -1,7 +1,13 @@
 <?php
 
+/**
+ * author: Cristian Tejada - https://github.com/ctejadan
+ */
+
 class PagoFacilHelper
 {
+    var $dev_server = "https://t.pagofacil.xyz/v1";
+    var $prod_server = "https://t.pgf.cl/v1";
 
     public function generateSignature($payload, $tokenSecret)
     {
@@ -14,14 +20,14 @@ class PagoFacilHelper
         return $signature;
     }
 
-    public function createTransaction($postVars, $request, $showAllPlatformsInPagoFacil)
+    public function createTransaction($postVars, $request, $showAllPlatformsInPagoFacil, $environment)
     {
         $ch = curl_init();
 
-        if (Configuration::get('ENVIRONMENT') == 'PRODUCTION') {
-            curl_setopt($ch, CURLOPT_URL, "https://t.pgf.cl/v1");
+        if ($environment == 'PRODUCTION') {
+            curl_setopt($ch, CURLOPT_URL, $this->prod_server);
         } else {
-            curl_setopt($ch, CURLOPT_URL, "https://t.pagofacil.xyz/v1");
+            curl_setopt($ch, CURLOPT_URL, $this->dev_server);
         }
         curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/x-www-form-urlencoded'));
         curl_setopt($ch, CURLOPT_POSTFIELDS, $postVars);
@@ -33,40 +39,25 @@ class PagoFacilHelper
 
         curl_close($ch);
 
-        if (in_array("errorMessage", $result) || $result['status'] == 0) {
+        if ($showAllPlatformsInPagoFacil === 'YES') {
+            //show all platforms
+            return $server_output;
 
-            $smarty = $this->context->smarty;
-
-            $smarty->assign('errorCode', $result['statusCode']);
-            $this->setTemplate('module:pagofacil/views/templates/front/create_transaction_failed.tpl');
         } else {
-            if ($showAllPlatformsInPagoFacil === 'YES') {
-                //show all platforms
-                return Tools::redirect($result['redirect']);
+            $ch = curl_init();
 
-            } else {
+            curl_setopt($ch, CURLOPT_URL, $request['endpoint']);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/x-www-form-urlencoded'));
+            curl_setopt($ch, CURLOPT_POSTFIELDS, "{\"transaction\":\"" . $result['transactionId'] . "\"}");
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-                $ch = curl_init();
+            $server_output_response = curl_exec($ch);
 
-                curl_setopt($ch, CURLOPT_URL, $request['endpoint']);
-                curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/x-www-form-urlencoded'));
-                curl_setopt($ch, CURLOPT_POSTFIELDS, "{\"transaction\":\"" . $result['transactionId'] . "\"}");
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_close($ch);
 
-                $server_output_response = curl_exec($ch);
-
-                $response = json_decode($server_output_response, true);
-
-                curl_close($ch);
-
-                if (empty($response)) {
-                    echo $server_output_response;
-                } else {
-                    return Tools::redirect($response['redirect']);
-                }
-
-            }
+            return $server_output_response;
         }
+
     }
 
     public function httpResponseCode($response_code)
@@ -196,6 +187,55 @@ class PagoFacilHelper
             header($header);
             die($text);
         }
+    }
+
+    public function getServices($environment, $iso_code, $token_service)
+    {
+        $ch = curl_init();
+
+        if ($environment == 'PRODUCTION') {
+            curl_setopt($ch, CURLOPT_URL, "https://t.pgf.cl/v1/services");
+        } else {
+            curl_setopt($ch, CURLOPT_URL, "https://t.pagofacil.xyz/v1/services");
+        }
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('x-currency: ' . $iso_code, 'x-service: ' . $token_service));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+        $server_output = curl_exec($ch);
+
+        $result = json_decode($server_output, true);
+
+        curl_close($ch);
+
+        return $result;
+    }
+
+    public function generatePostVarsString($signaturePayload)
+    {
+        $postVars = '';
+        $ix = 0;
+        $len = count($signaturePayload);
+
+        foreach ($signaturePayload as $key => $value) {
+            if ($ix !== $len - 1) {
+                if ($key == "pf_url_complete" || $key == "pf_url_callback") {
+                    $postVars .= $key . "=" . urlencode($value) . "&";
+
+                } else {
+                    $postVars .= $key . "=" . $value . "&";
+                }
+
+            } else {
+                if ($key == "pf_url_complete" || $key == "pf_url_callback") {
+                    $postVars .= $key . "=" . urlencode($value);
+                } else {
+                    $postVars .= $key . "=" . $value;
+                }
+            }
+            $ix++;
+        }
+
+        return $postVars;
     }
 
 }

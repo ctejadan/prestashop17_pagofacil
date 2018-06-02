@@ -33,6 +33,7 @@ use PrestaShop\PrestaShop\Core\Payment\PaymentOption;
 if (!defined('_PS_VERSION_')) {
     exit;
 }
+include_once(_PS_MODULE_DIR_ . 'pagofacil' . DIRECTORY_SEPARATOR . 'classes' . DIRECTORY_SEPARATOR . 'PagoFacilHelper.php');
 
 class PagoFacil extends PaymentModule
 {
@@ -269,6 +270,8 @@ class PagoFacil extends PaymentModule
 
     public function hookPaymentOptions($params)
     {
+        $PFHelper = new PagoFacilHelper();
+
         if (!$this->active) {
             return;
         }
@@ -285,22 +288,8 @@ class PagoFacil extends PaymentModule
                 $this->showAllPaymentPlatforms(),
             ];
         } else {
-            $ch = curl_init();
 
-            if(Configuration::get('ENVIRONMENT') == 'PRODUCTION'){
-                curl_setopt($ch, CURLOPT_URL, "https://t.pgf.cl/v1/services");
-            }
-            else{
-                curl_setopt($ch, CURLOPT_URL, "https://t.pagofacil.xyz/v1/services");
-            }
-            curl_setopt($ch, CURLOPT_HTTPHEADER, array('x-currency: ' . $currency->iso_code, 'x-service: ' . $this->token_service));
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-            $server_output = curl_exec($ch);
-
-            $result = json_decode($server_output, true);
-
-            curl_close($ch);
+            $result = $PFHelper->getServices(Configuration::get('ENVIRONMENT'), $currency->iso_code, $this->token_service);
 
             $paymentPlatformAvailables = array();
 

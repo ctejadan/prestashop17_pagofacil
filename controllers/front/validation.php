@@ -134,10 +134,24 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
         }
 
         //create transaction in pago facil
-        $PFHelper->createTransaction($postVars, $_REQUEST, Configuration::get('SHOW_ALL_PAYMENT_PLATFORMS'));
+        $resultBeforeJSONDecode = $PFHelper->createTransaction($postVars, $_REQUEST, Configuration::get('SHOW_ALL_PAYMENT_PLATFORMS'), Configuration::get('ENVIRONMENT'));
 
-        //use this to show template
-        //$this->setTemplate('module:pagofacil/views/templates/front/payment_return.tpl');
+        $result = json_decode($resultBeforeJSONDecode, true);
+
+
+        if (!empty($result) && in_array("errorMessage", $result) || !empty($result) && in_array("status", $result) && $result['status'] == 0) {
+            $smarty = $this->context->smarty;
+            $smarty->assign('errorCode', $result['statusCode']);
+            $this->setTemplate('module:pagofacil/views/templates/front/create_transaction_failed.tpl');
+        } else {
+            if (empty($result)) {
+                //show webpay
+                echo $resultBeforeJSONDecode;
+            } else {
+                //redirect to payment platform
+                Tools::redirect($result['redirect']);
+            }
+        }
     }
 
 }

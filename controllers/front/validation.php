@@ -31,6 +31,9 @@
 /**
  * @since 1.5.0
  */
+
+include_once(_PS_MODULE_DIR_ . 'pagofacil' . DIRECTORY_SEPARATOR . 'classes' . DIRECTORY_SEPARATOR . 'PagoFacilHelper.php');
+
 class PagoFacilValidationModuleFrontController extends ModuleFrontController
 {
     /**
@@ -38,6 +41,9 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
      */
     public function postProcess()
     {
+
+        $PFHelper = new PagoFacilHelper();
+
         $cart = $this->context->cart;
         if ($cart->id_customer == 0 || $cart->id_address_delivery == 0 || $cart->id_address_invoice == 0 || !$this->module->active) {
             Tools::redirect('index.php?controller=order&step=1');
@@ -94,11 +100,11 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
             'pf_token_service' => $token_service,
             'pf_token_store' => $token_store,
             'pf_url_complete' => $return_url,
-            'pf_url_callback' => $url.'module/pagofacil/callback'
+            'pf_url_callback' => $url . 'module/pagofacil/callback'
         );
 
         //generate signature
-        $signature = $this->generateSignature($signaturePayload, $token_secret);
+        $signature = $PFHelper->generateSignature($signaturePayload, $token_secret);
 
         //add signature to the payload
         $signaturePayload['pf_signature'] = $signature;
@@ -128,68 +134,10 @@ class PagoFacilValidationModuleFrontController extends ModuleFrontController
         }
 
         //create transaction in pago facil
-        $this->createTransaction($postVars, $_REQUEST, Configuration::get('SHOW_ALL_PAYMENT_PLATFORMS'));
+        $PFHelper->createTransaction($postVars, $_REQUEST, Configuration::get('SHOW_ALL_PAYMENT_PLATFORMS'));
 
         //use this to show template
         //$this->setTemplate('module:pagofacil/views/templates/front/payment_return.tpl');
-    }
-
-    public function generateSignature($payload, $tokenSecret)
-    {
-        $signatureString = "";
-        ksort($payload);
-        foreach ($payload as $key => $value) {
-            $signatureString .= $key . $value;
-        }
-        $signature = hash_hmac('sha256', $signatureString, $tokenSecret);
-        return $signature;
-    }
-
-    public function createTransaction($postVars, $request, $showAllPlatformsInPagoFacil)
-    {
-        $ch = curl_init();
-
-        curl_setopt($ch, CURLOPT_URL, "https://t.pagofacil.xyz/v1");
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/x-www-form-urlencoded'));
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $postVars);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-        $server_output = curl_exec($ch);
-
-        $result = json_decode($server_output, true);
-
-        curl_close($ch);
-
-        if ($result['errorMessage'] || $result['status'] == 0) {
-            $this->setTemplate('module:pagofacil/views/templates/front/create_transaction_failed.tpl');
-        } else {
-            if ($showAllPlatformsInPagoFacil === 'YES') {
-                //show all platforms
-                return Tools::redirect($result['redirect']);
-
-            } else {
-
-                $ch = curl_init();
-
-                curl_setopt($ch, CURLOPT_URL, $request['endpoint']);
-                curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-type: application/x-www-form-urlencoded'));
-                curl_setopt($ch, CURLOPT_POSTFIELDS, "{\"transaction\":\"" . $result['transactionId'] . "\"}");
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-                $server_output_response = curl_exec($ch);
-
-                $response = json_decode($server_output_response, true);
-
-                curl_close($ch);
-
-                if (empty($response)) {
-                    echo $server_output_response;
-                } else {
-                    return Tools::redirect($response['redirect']);
-                }
-
-            }
-        }
     }
 
 }

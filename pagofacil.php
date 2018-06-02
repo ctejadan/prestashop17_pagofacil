@@ -47,8 +47,8 @@ class PagoFacil extends PaymentModule
     var $token_service;
     var $token_secret;
     //TODO Change servers!
-    var $server_desarrollo = "https://t.pagofacil.xyz/v1";
-    var $server_produccion = "https://t.pagofacil.xyz/v1";
+    var $dev_server = "https://t.pagofacil.xyz/v1";
+    var $prod_server = "https://t.pgf.cl/v1";
 
     public function __construct()
     {
@@ -110,7 +110,7 @@ class PagoFacil extends PaymentModule
         if (Tools::isSubmit('submit' . $this->name)) {
             $token_service = strval(Tools::getValue('TOKEN_SERVICE'));
             $token_secret = strval(Tools::getValue('TOKEN_SECRET'));
-            $is_devel = strval(Tools::getValue('DEV_ENV'));
+            $environment = strval(Tools::getValue('ENVIRONMENT'));
             $show_all_payment_platforms = strval(Tools::getValue('SHOW_ALL_PAYMENT_PLATFORMS'));
 
 
@@ -125,13 +125,13 @@ class PagoFacil extends PaymentModule
 
             Configuration::updateValue('TOKEN_SERVICE', $token_service);
             Configuration::updateValue('TOKEN_SECRET', $token_secret);
-            Configuration::updateValue('DEV_ENV', $is_devel);
+            Configuration::updateValue('ENVIRONMENT', $environment);
             Configuration::updateValue('SHOW_ALL_PAYMENT_PLATFORMS', $show_all_payment_platforms);
 
             $output .= $this->displayConfirmation($this->l('Successfully updated'));
             $output .= $this->displayConfirmation($this->l("$token_service"));
             $output .= $this->displayConfirmation($this->l("$token_secret"));
-            $output .= $this->displayConfirmation($this->l("$is_devel"));
+            $output .= $this->displayConfirmation($this->l("$environment"));
             $output .= $this->displayConfirmation($this->l("$show_all_payment_platforms"));
 
         }
@@ -143,11 +143,6 @@ class PagoFacil extends PaymentModule
         // Get default language
         $default_lang = (int)Configuration::get('PS_LANG_DEFAULT');
 
-        $optionsforselect = array(
-            array('id_selection' => 'YES', 'name' => 'Yes'),
-            array('id_selection' => 'NO', 'name' => 'No'),
-        );
-
         // Init Fields form array
         $fields_form[0]['form'] = array(
             'legend' => array(
@@ -156,7 +151,15 @@ class PagoFacil extends PaymentModule
             'input' => array(
                 array(
                     'label' => '',
-                    'desc' => $this->l('The tokens correspond to the service registered in the Pago Fácil Dashboard: http://dashboard.pagofacil.xyz'),
+                    'desc' => $this->l('To get the Token Service and Token Secret, you have to create an account in PagoFácil Dashboard:'),
+                ),
+                array(
+                    'label' => '',
+                    'desc' => $this->l('Integration, tests and development: https://dashboard.pagofacil.xyz'),
+                ),
+                array(
+                    'label' => '',
+                    'desc' => $this->l('Production: https://dashboard.pagofacil.org'),
                 ),
                 array(
                     'type' => 'text',
@@ -174,21 +177,22 @@ class PagoFacil extends PaymentModule
                 ),
                 array(
                     'type' => 'radio',
-                    'label' => $this->l('Development environment?'),
-                    'name' => 'DEV_ENV',
+                    'label' => $this->l('Environment:'),
+                    'name' => 'ENVIRONMENT',
+                    'desc' => $this->l('Remember, you have to choose the "Integration, tests and development" option you when you are using test credentials, these transactions are not real and you must use test data provided in our documentation https://docs.pagofacil.xyz.'),
                     'required' => true,
                     'class' => 't',
                     'is_bool' => true,
                     'values' => array(
                         array(
                             'id' => 'active_on',
-                            'value' => 'YES',
-                            'label' => $this->l('Yes')
+                            'value' => 'DEVELOPMENT',
+                            'label' => $this->l('Integration, tests and development')
                         ),
                         array(
                             'id' => 'active_off',
-                            'value' => 'NO',
-                            'label' => $this->l('No')
+                            'value' => 'PRODUCTION',
+                            'label' => $this->l('Production')
                         )
                     ),
                 ),
@@ -256,7 +260,7 @@ class PagoFacil extends PaymentModule
         // Load current value
         $helper->fields_value['TOKEN_SERVICE'] = Configuration::get('TOKEN_SERVICE');
         $helper->fields_value['TOKEN_SECRET'] = Configuration::get('TOKEN_SECRET');
-        $helper->fields_value['DEV_ENV'] = Configuration::get('DEV_ENV');
+        $helper->fields_value['ENVIRONMENT'] = Configuration::get('ENVIRONMENT');
         $helper->fields_value['SHOW_ALL_PAYMENT_PLATFORMS'] = Configuration::get('SHOW_ALL_PAYMENT_PLATFORMS');
 
 
@@ -283,7 +287,12 @@ class PagoFacil extends PaymentModule
         } else {
             $ch = curl_init();
 
-            curl_setopt($ch, CURLOPT_URL, "https://t.pagofacil.xyz/v1/services");
+            if(Configuration::get('ENVIRONMENT') == 'PRODUCTION'){
+                curl_setopt($ch, CURLOPT_URL, "https://t.pgf.cl/v1/services");
+            }
+            else{
+                curl_setopt($ch, CURLOPT_URL, "https://t.pagofacil.xyz/v1/services");
+            }
             curl_setopt($ch, CURLOPT_HTTPHEADER, array('x-currency: ' . $currency->iso_code, 'x-service: ' . $this->token_service));
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
@@ -323,7 +332,7 @@ class PagoFacil extends PaymentModule
                         ]
                     ])
                     ->setLogo($newLogoUrl)
-                    ->setAdditionalInformation('<section><p>' . $value[description] . '</p ></section >');
+                    ->setAdditionalInformation('<section><p>' . $value['description'] . '</p ></section >');
                 array_push($paymentPlatformAvailables, $newOption);
             }
 

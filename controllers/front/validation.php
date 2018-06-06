@@ -31,9 +31,7 @@
 /**
  * @since 1.5.0
  */
-
-include_once(_PS_MODULE_DIR_ . 'pagofacil' . DIRECTORY_SEPARATOR . 'classes' . DIRECTORY_SEPARATOR . 'PagoFacilHelper.php');
-
+require_once(_PS_MODULE_DIR_ . 'pagofacil' . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'pfhelper' . DIRECTORY_SEPARATOR . 'PagoFacilHelper.php');
 
 class PagoFacilValidationModuleFrontController extends ModuleFrontController
 {

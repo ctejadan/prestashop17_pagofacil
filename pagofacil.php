@@ -33,7 +33,11 @@ use PrestaShop\PrestaShop\Core\Payment\PaymentOption;
 if (!defined('_PS_VERSION_')) {
     exit;
 }
-include_once(_PS_MODULE_DIR_ . 'pagofacil' . DIRECTORY_SEPARATOR . 'classes' . DIRECTORY_SEPARATOR . 'PagoFacilHelper.php');
+
+//require_once('vendor/autoload.php');
+#require_once(_PS_MODULE_DIR_ . 'pagofacil' . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php');
+require_once(_PS_MODULE_DIR_ . 'pagofacil' . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'pfhelper' . DIRECTORY_SEPARATOR . 'PagoFacilHelper.php');
+
 
 class PagoFacil extends PaymentModule
 {
@@ -299,7 +303,7 @@ class PagoFacil extends PaymentModule
 
                 $logoExtension = pathinfo(parse_url($value['logo_url'])['path'], PATHINFO_EXTENSION);
 
-                $newLogoUrl = Tools::substr($value['logo_url'], 0, strrpos($value['logo_url'], '.')) . '-rect.' . $logoExtension;
+                $newLogoUrl = Tools::substr($value['logo_url'], 0, strrpos($value['logo_url'], '.')) . '80.' . $logoExtension;
 
                 $newOption->setCallToActionText($this->l($value['name']))
                     ->setAction($this->context->link->getModuleLink($this->name, 'validation', array(), true))

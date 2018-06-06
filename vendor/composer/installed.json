@@ -1,0 +1,14 @@
+[
+    {
+        "name": "pfhelper",
+        "version": "1.0",
+        "version_normalized": "1.0.0.0",
+        "source": {
+            "type": "git",
+            "url": "https://github.com/ctejadan/pagoFacilHelper.git",
+            "reference": "master"
+        },
+        "type": "library",
+        "installation-source": "source"
+    }
+]

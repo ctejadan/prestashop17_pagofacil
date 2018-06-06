@@ -1,0 +1,30 @@
+{
+    "name": "pagofacil",
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "authors": [
+        {
+            "name": "Cristian Tejada",
+            "email": "cristian.tejadan@gmail.com"
+        }
+    ],
+    "config": {
+        "preferred-install": "source"
+    },
+    "repositories": [
+{
+    "type": "package",
+    "package": {
+        "name": "pfhelper",
+        "version": "1.0",
+        "source": {
+            "url": "https://github.com/ctejadan/pagoFacilHelper.git",
+            "type": "git",
+            "reference": "master"
+        }
+    }
+}],
+"require" : {
+  "pfhelper": "1.0"
+}
+}

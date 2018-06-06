@@ -20,7 +20,7 @@
  * author: Cristian Tejada - https://github.com/ctejadan
  */
 
-include_once(_PS_MODULE_DIR_ . 'pagofacil' . DIRECTORY_SEPARATOR . 'classes' . DIRECTORY_SEPARATOR . 'PagoFacilHelper.php');
+require_once(_PS_MODULE_DIR_ . 'pagofacil' . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'pfhelper' . DIRECTORY_SEPARATOR . 'PagoFacilHelper.php');
 
 class PagoFacilCallbackModuleFrontController extends ModuleFrontController
 {

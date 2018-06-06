@@ -303,7 +303,7 @@ class PagoFacil extends PaymentModule
 
                 $logoExtension = pathinfo(parse_url($value['logo_url'])['path'], PATHINFO_EXTENSION);
 
-                $newLogoUrl = Tools::substr($value['logo_url'], 0, strrpos($value['logo_url'], '.')) . '80.' . $logoExtension;
+                $newLogoUrl = Tools::substr($value['logo_url'], 0, strrpos($value['logo_url'], '.')) . '-rect.' . $logoExtension;
 
                 $newOption->setCallToActionText($this->l($value['name']))
                     ->setAction($this->context->link->getModuleLink($this->name, 'validation', array(), true))
